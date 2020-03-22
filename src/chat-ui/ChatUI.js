@@ -2,13 +2,17 @@ import React, { useState, useRef } from 'react';
 import 'react-chat-elements/dist/main.css';
 import './ChatUI.css';
 import { MessageBox, Button, Input } from 'react-chat-elements';
+import { questions } from './questions';
 
 export const ChatUI = () => {
-	const [messages, setMessages] = useState([]);
+	const [currentQuestion, setCurrentQuestion] = useState(questions.age);
+	const [overallSeverity, setOverallSeverity] = useState(0);
+	const [messages, setMessages] = useState([
+		{ text: currentQuestion.text.de, position: 'left' },
+	]);
 	const textInput = useRef(null);
 
 	const submitText = () => {
-		console.log('submitted: ', textInput.current.state.value);
 		setMessages([...messages, { text: textInput.current.state.value }]);
 		textInput.current.clear();
 	};
@@ -16,7 +20,40 @@ export const ChatUI = () => {
 	return (
 		<div className="Chat-Box">
 			<Messages messages={messages} />
-			<Button text={'Clear Messages'} click={() => setMessages([])} />
+			<AnswerButtons
+				currentQuestion={currentQuestion}
+				onAnswerGiven={(answer) => {
+					const newSymptomSeverity =
+						overallSeverity + answer.severity;
+					if (newSymptomSeverity >= 5) {
+						setMessages([
+							...messages,
+							{ text: answer.text.de, position: 'right' },
+							{
+								text: 'Sie haben ernst zu nehmende Symptome.',
+								position: 'left',
+							},
+							{
+								text:
+									'Bitte suchen Sie umgehend einen Arzt auf.',
+								position: 'left',
+							},
+						]);
+						setCurrentQuestion(questions['done']);
+					} else {
+						setMessages([
+							...messages,
+							{ text: answer.text.de, position: 'right' },
+							{
+								text: questions[answer.nextQuestionId].text.de,
+								position: 'left',
+							},
+						]);
+						setCurrentQuestion(questions[answer.nextQuestionId]);
+						setOverallSeverity(newSymptomSeverity);
+					}
+				}}
+			/>
 			<Input
 				ref={textInput}
 				className="ChatUI-input"
@@ -41,17 +78,40 @@ export const ChatUI = () => {
 	);
 };
 
+const AnswerButtons = (props) => {
+	const showAnswerButtons =
+		props.currentQuestion && props.currentQuestion.possibleAnswers;
+	return (
+		<div style={{ display: 'flex' }}>
+			{showAnswerButtons
+				? props.currentQuestion.possibleAnswers.map((answer, index) => {
+						return (
+							<Button
+								key={index}
+								text={answer.text.de}
+								onClick={() => {
+									console.log('answered', answer);
+									props.onAnswerGiven(answer);
+								}}
+							/>
+						);
+				  })
+				: null}
+		</div>
+	);
+};
+
 const Messages = (props) => {
 	return props.messages.map((message, index) => {
 		return (
 			<MessageBox
 				key={index}
-				position={'right'}
+				position={message.position || 'right'}
 				titleColor={'gray'}
 				type={'text'}
 				text={message.text}
 				textColor={'blue'}
-				title={'You'}
+				title={message.position === 'right' ? 'You' : 'Covid-Buddy'}
 				data={{
 					uri: 'https://facebook.github.io/react/img/logo.svg',
 					status: {
